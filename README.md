@@ -40,6 +40,9 @@ Each commit message must be one line starting with one of the following words.
 MESSAGE="" # Empty. Use content of $(git config --get commit.message)
 ```
 
+The default prompt tries to create
+[Semantic Commit Messages](https://gist.github.com/joshbuchea/6f47e86d2510bce28f8e7f42ae84c716).
+
 ## Notes
 
 ### alias
