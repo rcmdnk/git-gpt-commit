@@ -1,19 +1,7 @@
 #!/usr/bin/env bash
 
-conf=${XDG_CONFIG_HOME:-$HOME/.config}/git_gpt_commit/config
-template=$(eval echo $(git config --get commit.template))
-
-if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
-  echo "Usage: git gpt-commit [options] [--] [<pathspec>...]
-
-Options are the same as git commit.
-You can change PROMPT and MESSAGE by editing $conf.
-PROMPT is a prompt message how to make a commit message from git diff.
-TEMPLATE will be shown under the commit message as a comment.
-
-Default values are:
-
-PROMPT=\"Please make git commit messages for the following diff output.
+_MODEL=""
+_PROMPT="Please make git commit messages for the following diff output.
 
 Each commit message must be one line starting with one of the following words.
 
@@ -23,10 +11,38 @@ Each commit message must be one line starting with one of the following words.
 * style: (formatting, missing semi colons, etc; no production code change)
 * refactor: (refactoring production code, eg. renaming a variable)
 * test: (adding missing tests, refactoring tests; no production code change)
-* chore: (updating grunt tasks etc; no production code change)
-\"
+* chore: (updating grunt tasks etc; no production code change)"
 
-MESSAGE=\"\" # Empty.${template:+ Use content of ${template}.}
+_EXCLUDE="*.lock"
+
+_MESSAGE=""
+
+
+conf=${XDG_CONFIG_HOME:-$HOME/.config}/git_gpt_commit/config
+template=$(eval echo $(git config --get commit.template))
+topdir=$(git rev-parse --show-toplevel)
+
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+  echo "Usage: git gpt-commit [options] [--] [<pathspec>...]
+
+Options are the same as git commit.
+You can change PROMPT, EXCLUDE, and MESSAGE by editing $conf.
+PROMPT is a prompt message how to make a commit message from git diff.
+EXCLUDE is a regex to exclude files from git diff. Multiple regexes can be separated by ','.
+TEMPLATE will be shown under the commit message as a comment.
+
+Default values are:
+    # ChatGPT model. If empty, cg's default value is used.
+    MODEL=\"$_MODEL\"
+
+    # Prompt to make commit messages from git diff.
+    PROMPT=\"$_PROMPT\"
+
+    # Regex to exclude files from git diff. Multiple regexes can be separated by ','.
+    EXCLUDE=\"$_EXCLUDE\"
+
+    # Commit message template. If empty, use content of \$(git config --get commit.template) if exists.
+    MESSAGE=\"$_MESSAGE\" # If empty, use content of \$(git config --get commit.template) if exists.
 "
   exit
 fi
@@ -50,6 +66,7 @@ if [ -z "$OPENAI_API_KEY" ]; then
 fi
 
 if echo " $* " | grep -q " -a ";then
+  modified=$(git status --porcelain | grep " M"|awk '{print $2}')
   git add -u
 fi
 
@@ -69,33 +86,40 @@ if [ -f "$conf" ]; then
   source "$conf"
 fi
 
-if [ -z "$PROMPT" ];then
-  PROMPT="
-Please make git commit messages for the following diff output.
-
-Each commit message must be one line starting with one of the following words.
-
-* feat: (new feature for the user, not a new feature for build script)
-* fix: (bug fix for the user, not a fix to a build script)
-* docs: (changes to the documentation)
-* style: (formatting, missing semi colons, etc; no production code change)
-* refactor: (refactoring production code, eg. renaming a variable)
-* test: (adding missing tests, refactoring tests; no production code change)
-* chore: (updating grunt tasks etc; no production code change)
-"
-fi
-
+MODEL="${MODEL:+-m $MODEL}"
+PROMPT="${PROMPT-$_PROMPT}"
+EXCLUDE="${EXCLUD-$_EXCLUDE}"
 if [ -z "$MESSAGE" ] && [ -n "$template" ] && [ -f "$template" ];then
   MESSAGE="$(cat "$template")"
 fi
 
-commit_message="$(cg ask "$PROMPT
+exclude_list=""
+if [ -n "$EXCLUDE" ];then
+  for exclude in $(echo "$EXCLUDE" | tr ',' ' ');do
+    exclude_list="$exclude_list :(exclude)$topdir/$exclude"
+  done
+  exclude_list="-- $exclude_list"
+fi
+
+commit_message="$(cg ask $MODEL "$PROMPT
 
 ### diff
 
-$(git diff --cached)
+$(git diff --cached $exclude_list)
 ")
 
 $MESSAGE"
 
-git commit --no-verify -e -m "$commit_message" "$@"
+tmp_file=$(mktemp)
+git commit --no-verify -e -m "$commit_message" "$@" 2> $tmp_file
+ret=$?
+if grep -q "Aborting commit due to empty commit message." $tmp_file;then
+  if [ -n "$modified" ];then
+    for f in $modified;do
+      git restore --staged $topdir/$f
+    done
+  fi
+fi
+cat $tmp_file 1>&2
+rm -f $tmp_file
+exit $?
