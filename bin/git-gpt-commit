@@ -5,14 +5,15 @@ template=$(eval echo $(git config --get commit.template))
 
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Usage: git gpt-commit [options] [--] [<pathspec>...]
-  Options are the same as git commit.
-  You can change PROMPT and MESSAGE by editing $conf.
-  PROMPT is a prompt message how to make a commit message from git diff.
-  TEMPLATE will be shown under the commit message as a comment.
 
-  Default values are:
+Options are the same as git commit.
+You can change PROMPT and MESSAGE by editing $conf.
+PROMPT is a prompt message how to make a commit message from git diff.
+TEMPLATE will be shown under the commit message as a comment.
 
-  PROMPT=\"Please make git commit messages for the following diff output.
+Default values are:
+
+PROMPT=\"Please make git commit messages for the following diff output.
 
 Each commit message must be one line starting with one of the following words.
 
@@ -24,8 +25,10 @@ Each commit message must be one line starting with one of the following words.
 * test: (adding missing tests, refactoring tests; no production code change)
 * chore: (updating grunt tasks etc; no production code change)
 \"
-  MESSAGE=\"\" # Empty. ${template:+Use ${template} content.}
+
+MESSAGE=\"\" # Empty.${template:+ Use content of ${template}.}
 "
+  exit
 fi
 
 if ! type git >/dev/null 2>&1; then
@@ -48,6 +51,11 @@ fi
 
 if echo " $* " | grep -q " -a ";then
   git add -u
+fi
+
+if ! git status | grep -q "Changes to be committed";then
+  git commit
+  exit
 fi
 
 if ! echo " $* " | grep -q -e " -n " -e " --no-verify ";then
