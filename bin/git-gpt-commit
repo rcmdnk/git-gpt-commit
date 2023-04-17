@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+
+conf=${XDG_CONFIG_HOME:-$HOME/.config}/git_gpt_commit/config
+template=$(eval echo $(git config --get commit.template))
+
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+  echo "Usage: git gpt-commit [options] [--] [<pathspec>...]
+  Options are the same as git commit.
+  You can change PROMPT and MESSAGE by editing $conf.
+  PROMPT is a prompt message how to make a commit message from git diff.
+  TEMPLATE will be shown under the commit message as a comment.
+
+  Default values are:
+
+  PROMPT=\"Please make git commit messages for the following diff output.
+
+Each commit message must be one line starting with one of the following words.
+
+* feat: (new feature for the user, not a new feature for build script)
+* fix: (bug fix for the user, not a fix to a build script)
+* docs: (changes to the documentation)
+* style: (formatting, missing semi colons, etc; no production code change)
+* refactor: (refactoring production code, eg. renaming a variable)
+* test: (adding missing tests, refactoring tests; no production code change)
+* chore: (updating grunt tasks etc; no production code change)
+\"
+  MESSAGE=\"\" # Empty. ${template:+Use ${template} content.}
+"
+fi
+
+if ! type git >/dev/null 2>&1; then
+  echo "git command not found. Please install git command."
+  exit 1
+fi
+
+if ! type cg >/dev/null 2>&1; then
+  echo "cg command not found. Please install cg command by Homebrew or Pip.
+    $ brew install chatgpt-prompt-wrapper
+or
+    $ pip install chatgpt-prompt-wrapper"
+  exit 1
+fi
+
+if [ -z "$OPENAI_API_KEY" ]; then
+  echo "OPENAI_API_KEY is not set. Please set OPENAI_API_KEY environment variable."
+  exit 1
+fi
+
+if echo " $* " | grep -q " -a ";then
+  git add -u
+fi
+
+if ! echo " $* " | grep -q -e " -n " -e " --no-verify ";then
+  git hook run --ignore-missing pre-commit
+  if [ $? -ne 0 ]; then
+    exit 1
+  fi
+fi
+
+if [ -f "$conf" ]; then
+  source "$conf"
+fi
+
+if [ -z "$PROMPT" ];then
+  PROMPT="
+Please make git commit messages for the following diff output.
+
+Each commit message must be one line starting with one of the following words.
+
+* feat: (new feature for the user, not a new feature for build script)
+* fix: (bug fix for the user, not a fix to a build script)
+* docs: (changes to the documentation)
+* style: (formatting, missing semi colons, etc; no production code change)
+* refactor: (refactoring production code, eg. renaming a variable)
+* test: (adding missing tests, refactoring tests; no production code change)
+* chore: (updating grunt tasks etc; no production code change)
+"
+fi
+
+if [ -z "$MESSAGE" ] && [ -n "$template" ] && [ -f "$template" ];then
+  MESSAGE="$(cat "$template")"
+fi
+
+commit_message="$(cg ask "$PROMPT
+
+### diff
+
+$(git diff --cached)
+")
+
+$MESSAGE"
+
+git commit --no-verify -e -m "$commit_message" "$@"
