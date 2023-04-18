@@ -18,13 +18,18 @@ or put the script `bin/git-gpt-commit` into the directory under the `PATH`.
 Usage: git gpt-commit [options] [--] [<pathspec>...]
 
 Options are the same as git commit.
-You can change PROMPT and MESSAGE by editing $XDG_CONFIG_HOME}/.config/git_gpt_commit/config.
+You can change PROMPT, EXCLUDE, and MESSAGE by editing ${XDG_CONFIG_HOME:-$HOME/.config}/git_gpt_commit/config.
 PROMPT is a prompt message how to make a commit message from git diff.
+EXCLUDE is a regex to exclude files from git diff. Multiple regexes can be separated by ','.
 TEMPLATE will be shown under the commit message as a comment.
 
 Default values are:
 
-PROMPT="Please make git commit messages for the following diff output.
+    # ChatGPT model. If empty, cg's default value is used.
+    MODEL="" # ChatGPT model. If empty, cg's default value is used.
+
+    # Prompt to make commit messages from git diff.
+    PROMPT="Please make git commit messages for the following diff output.
 
 Each commit message must be one line starting with one of the following words.
 
@@ -34,10 +39,14 @@ Each commit message must be one line starting with one of the following words.
 * style: (formatting, missing semi colons, etc; no production code change)
 * refactor: (refactoring production code, eg. renaming a variable)
 * test: (adding missing tests, refactoring tests; no production code change)
-* chore: (updating grunt tasks etc; no production code change)
-"
+* chore: (updating grunt tasks etc; no production code change)"
 
-MESSAGE="" # Empty. Use content of $(git config --get commit.message)
+    # Regex to exclude files from git diff. Multiple regexes can be separated by ','.
+    EXCLUDE="*.lock"
+
+    # Commit message template. If empty, use content of \$(git config --get commit.template) if exists.
+    MESSAGE="" # If empty, use content of $(git config --get commit.template).
+
 ```
 
 The default prompt tries to create
@@ -60,7 +69,3 @@ Then, you can use `git c` as `git gpt-commit`.
 ### Cancel a commit
 
 To cancel a commit, just remove all messages and exit a editor as usual unless `--allow-empty-message` is given.
-
-### -a option
-
-For now, when you use `-a` option, modified files will be added and they are not reverted even if you cancel the commit.
