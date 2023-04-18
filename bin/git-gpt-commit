@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-_VERSION="0.0.3"
+_VERSION="0.0.4"
 
 _MODEL=""
 _PROMPT="Please make git commit messages for the following diff output.
@@ -77,6 +77,14 @@ if echo " $* " | grep -q " -a ";then
   git add -u
 fi
 
+function restore {
+  if [ -n "$modified" ];then
+    for f in $modified;do
+      git restore --staged $topdir/$f
+    done
+  fi
+}
+
 if ! git status | grep -q "Changes to be committed";then
   git commit
   exit
@@ -85,6 +93,7 @@ fi
 if ! echo " $* " | grep -q -e " -n " -e " --no-verify ";then
   git hook run --ignore-missing pre-commit
   if [ $? -ne 0 ]; then
+    restore
     exit 1
   fi
 fi
@@ -121,13 +130,9 @@ $MESSAGE"
 tmp_file=$(mktemp)
 git commit --no-verify -e -m "$commit_message" "$@" 2> $tmp_file
 ret=$?
-if grep -q "Aborting commit due to empty commit message." $tmp_file;then
-  if [ -n "$modified" ];then
-    for f in $modified;do
-      git restore --staged $topdir/$f
-    done
-  fi
-fi
 cat $tmp_file 1>&2
+if grep -q "Aborting commit due to empty commit message." $tmp_file;then
+  restore
+fi
 rm -f $tmp_file
 exit $?
