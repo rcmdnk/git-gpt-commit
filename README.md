@@ -24,9 +24,8 @@ EXCLUDE is a regex to exclude files from git diff. Multiple regexes can be separ
 TEMPLATE will be shown under the commit message as a comment.
 
 Default values are:
-
     # ChatGPT model. If empty, cg's default value is used.
-    MODEL="" # ChatGPT model. If empty, cg's default value is used.
+    MODEL=""
 
     # Prompt to make commit messages from git diff.
     PROMPT="Please make git commit messages for the following diff output.
@@ -44,8 +43,9 @@ Each commit message must be one line starting with one of the following words.
     # Regex to exclude files from git diff. Multiple regexes can be separated by ','.
     EXCLUDE="*.lock"
 
-    # Commit message template. If empty, use content of \$(git config --get commit.template) if exists.
-    MESSAGE="" # If empty, use content of $(git config --get commit.template).
+    # Commit message template. If empty, use content of $(git config --get commit.template) if exists.
+    # If not defined, use content of $(git config --get commit.template) if exists. Set  to drop the message.
+    MESSAGE # Not defined.
 
 ```
 

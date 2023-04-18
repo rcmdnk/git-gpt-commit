@@ -26,7 +26,7 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Usage: git gpt-commit [options] [--] [<pathspec>...]
 
 Options are the same as git commit.
-You can change PROMPT, EXCLUDE, and MESSAGE by editing $conf.
+You can change PROMPT, EXCLUDE, and MESSAGE by editing \${XDG_CONFIG_HOME:-\$HOME/.config}/git_gpt_commit/config.
 PROMPT is a prompt message how to make a commit message from git diff.
 EXCLUDE is a regex to exclude files from git diff. Multiple regexes can be separated by ','.
 TEMPLATE will be shown under the commit message as a comment.
@@ -42,7 +42,8 @@ Default values are:
     EXCLUDE=\"$_EXCLUDE\"
 
     # Commit message template. If empty, use content of \$(git config --get commit.template) if exists.
-    MESSAGE=\"$_MESSAGE\" # If empty, use content of \$(git config --get commit.template) if exists.
+    # If not defined, use content of \$(git config --get commit.template) if exists. Set `MESSAGE=""` to drop the message.
+    MESSAGE # Not defined.
 "
   exit
 fi
@@ -86,11 +87,12 @@ if [ -f "$conf" ]; then
   source "$conf"
 fi
 
+MODEL="${MODEL:-$_MODEL}"
 MODEL="${MODEL:+-m $MODEL}"
-PROMPT="${PROMPT-$_PROMPT}"
+PROMPT="${PROMPT:-$_PROMPT}"
 EXCLUDE="${EXCLUD-$_EXCLUDE}"
 if [ -z "$MESSAGE" ] && [ -n "$template" ] && [ -f "$template" ];then
-  MESSAGE="$(cat "$template")"
+  MESSAGE="${EXCLUD-$(cat "$template")}"
 fi
 
 exclude_list=""
