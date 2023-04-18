@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+_VERSION="0.0.3"
+
 _MODEL=""
 _PROMPT="Please make git commit messages for the following diff output.
 
@@ -17,10 +19,14 @@ _EXCLUDE="*.lock"
 
 _MESSAGE=""
 
-
 conf=${XDG_CONFIG_HOME:-$HOME/.config}/git_gpt_commit/config
 template=$(eval echo $(git config --get commit.template))
 topdir=$(git rev-parse --show-toplevel)
+
+if [ "$1" = "-v" ] || [ "$1" = "--version" ]; then
+  echo $(basename $0) $_VERSION
+  exit
+fi
 
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Usage: git gpt-commit [options] [--] [<pathspec>...]
