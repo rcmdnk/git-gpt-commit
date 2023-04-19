@@ -32,6 +32,8 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Usage: git gpt-commit [options] [--] [<pathspec>...]
 
 Options are the same as git commit.
+In addition, [-c | --change] option is available to tell contents of changes to $0.
+
 You can change PROMPT, EXCLUDE, and MESSAGE by editing \${XDG_CONFIG_HOME:-\$HOME/.config}/git_gpt_commit/config.
 PROMPT is a prompt message how to make a commit message from git diff.
 EXCLUDE is a regex to exclude files from git diff. Multiple regexes can be separated by ','.
@@ -77,6 +79,24 @@ if echo " $* " | grep -q " -a ";then
   git add -u
 fi
 
+change=""
+if echo " $* " | grep -q -e " -c " -e " --change ";then
+  is_change=0
+  for v;do
+    shift
+    if [ "$v" = "-c" ] || [ "$v" = "--change" ];then
+      is_change=1
+      continue
+    fi
+    if [ "$is_change" -eq 1 ];then
+      change="This commit is for: $v"$'\n'
+      is_change=0
+      continue
+    fi
+    set -- "$@" "$v"
+  done
+fi
+
 function restore {
   if [ -n "$modified" ];then
     for f in $modified;do
@@ -118,7 +138,7 @@ if [ -n "$EXCLUDE" ];then
   exclude_list="-- $exclude_list"
 fi
 
-commit_message="$(cg ask $MODEL "$PROMPT
+commit_message="$(cg ask $MODEL "${change}$PROMPT
 
 ### diff
 
