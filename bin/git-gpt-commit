@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
-_VERSION="0.0.5"
+_VERSION="0.0.6"
 
 _MODEL=""
-_PROMPT="Please make git commit messages for the following diff output.
+_PROMPT="You will be provided git diff output.
+Make git commit messages for the diff ouput.
 
 Each commit message must be one line starting with one of the following words.
 
@@ -13,7 +14,11 @@ Each commit message must be one line starting with one of the following words.
 * style: (formatting, missing semi colons, etc; no production code change)
 * refactor: (refactoring production code, eg. renaming a variable)
 * test: (adding missing tests, refactoring tests; no production code change)
-* chore: (updating grunt tasks etc; no production code change)"
+* chore: (updating grunt tasks etc; no production code change)
+
+Write only the commit message, not a comment.
+
+"
 
 _EXCLUDE="*.lock"
 
