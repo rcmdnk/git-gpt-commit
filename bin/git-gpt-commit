@@ -158,9 +158,8 @@ $(git diff --cached $exclude_list)
 $MESSAGE"
 
 tmp_file=$(mktemp)
-git commit --no-verify -e -m "$commit_message" "$@" 2> "$tmp_file"
+git commit --no-verify -e -m "$commit_message" "$@" 2>&1 | tee "$tmp_file"
 ret=$?
-cat "$tmp_file" 1>&2
 if grep -q "Aborting commit due to empty commit message." "$tmp_file";then
   restore
 fi
