@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-_VERSION="0.0.6"
+_VERSION="0.0.7"
 
 _MODEL=""
 _PROMPT="You will be provided git diff output.
