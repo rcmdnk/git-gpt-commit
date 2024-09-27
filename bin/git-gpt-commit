@@ -104,7 +104,7 @@ if echo " $* " | grep -q -e " -c " -e " --change ";then
   done
 fi
 
-function restore {
+restore () {
   if [ -n "$modified" ];then
     for f in $modified;do
       git restore --staged "$topdir/$f"
@@ -158,10 +158,9 @@ $(git diff --cached $exclude_list)
 $MESSAGE"
 
 tmp_file=$(mktemp)
-git commit --no-verify -e -m "$commit_message" "$@" 2>&1 | tee "$tmp_file"
+git commit --no-verify -e -m "$commit_message" "$@"
 ret=$?
-if grep -q "Aborting commit due to empty commit message." "$tmp_file";then
+if [ $ret -ne 0 ]; then
   restore
 fi
-rm -f "$tmp_file"
 exit $ret
