@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-_VERSION="0.0.7"
+_VERSION="0.0.8"
 
 _MODEL=""
 _PROMPT="You will be provided with git diff output. Based on the provided diff, create concise and clear git commit messages.
