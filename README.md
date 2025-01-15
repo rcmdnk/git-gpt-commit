@@ -31,23 +31,37 @@ Default values are:
     MODEL=""
 
     # Prompt to make commit messages from git diff.
-    PROMPT="Please make git commit messages for the following diff output.
+    PROMPT="You will be provided with git diff output. Based on the provided diff, create concise and clear git commit messages.
 
-Each commit message must be one line starting with one of the following words.
+Each commit message must:
+- Be written on one line.
+- Start with one of the following prefixes, depending on the type of change:
+  - feat: (introducing a new feature or functionality visible to the user)
+  - fix: (fixing a bug or issue that affects users)
+  - docs: (updating or improving documentation only)
+  - style: (non-functional changes like code formatting, removing extra spaces, etc.)
+  - refactor: (modifying existing code without changing its behavior, e.g., renaming variables, restructuring code)
+  - test: (adding or updating tests without changing production code)
+  - chore: (updates to build tools, configurations, or non-production-related changes)
 
-* feat: (new feature for the user, not a new feature for build script)
-* fix: (bug fix for the user, not a fix to a build script)
-* docs: (changes to the documentation)
-* style: (formatting, missing semi colons, etc; no production code change)
-* refactor: (refactoring production code, eg. renaming a variable)
-* test: (adding missing tests, refactoring tests; no production code change)
-* chore: (updating grunt tasks etc; no production code change)"
+Rules for output:
+1. Only output plain commit messages with no additional comments, bullet points, or formatting.
+2. Summarize changes into as few lines as possible, ideally within 3 lines.
+3. Group related changes under the same category when possible.
+4. Separate categories only if they address distinct types of changes.
+
+Example output format:
+feat: add get_name function to get user name
+test: add test for get_name
+
+"
 
     # Regex to exclude files from git diff. Multiple regexes can be separated by ','.
     EXCLUDE="*.lock"
 
     # Commit message template. If empty, use content of $(git config --get commit.template) if exists.
     # If not defined, use content of $(git config --get commit.template) if exists. Set 'MESSAGE=""' to drop the message.
+    MESSAGE # Not defined.
 ```
 
 The default prompt tries to create
