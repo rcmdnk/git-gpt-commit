@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-_VERSION="0.0.8"
+_VERSION="0.0.9"
 
 _MODEL=""
 _PROMPT="You will be provided with git diff output. Based on the provided diff, create concise and clear git commit messages.
@@ -16,7 +16,15 @@ Each commit message must:
   - test: (adding or updating tests without changing production code)
   - chore: (updates to build tools, configurations, or non-production-related changes)
 
-Focus on capturing the key purpose or result of the change. Do not include any comments or explanations, only the commit message itself.
+Rules for output:
+1. Only output plain commit messages with no additional comments, bullet points, or formatting.
+2. Summarize changes into as few lines as possible, ideally within 3 lines.
+3. Group related changes under the same category when possible.
+4. Separate categories only if they address distinct types of changes.
+
+Example output format:
+feat: add get_name function to get user name
+test: add test for get_name
 
 "
 
