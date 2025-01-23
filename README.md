@@ -27,8 +27,14 @@ EXCLUDE is a regex to exclude files from git diff. Multiple regexes can be separ
 TEMPLATE will be shown under the commit message as a comment.
 
 Default values are:
-    # ChatGPT model. gpt-4o is used if not defined. (Valid models are: OpenAI's gpt*, chatgpt*, DeepSeek's deepseek*)
+    # ChatGPT model. gpt-4o is used if not defined.
     MODEL="gpt-4o"
+
+    # API Endpoint. If not defined (or empty), use https://api.openai.com/v1/chat/completions (https://api.deepseek.com/v1/chat/completions) for OpenAI (DeepSeek) models, or http://localhost:11434/v1/chat/completions (Ollama local server) for others.
+    ENDPOINT=""
+
+    # API Key name in environment variable. If not defined (or empty), use OPENAI_API_KEY (DEEPSEEK_API_KEY) for OpenAI (DeepSeek) models.
+    KEY_NAME=""
 
     # Prompt to make commit messages from git diff.
     PROMPT="You will be provided with git diff output. Based on the provided diff, create concise and clear git commit messages.
@@ -62,6 +68,7 @@ test: add test for get_name
     # Commit message template. If empty, use content of $(git config --get commit.template) if exists.
     # If not defined, use content of $(git config --get commit.template) if exists. Set 'MESSAGE=""' to drop the message.
     MESSAGE # Not defined.
+
 
 ```
 
