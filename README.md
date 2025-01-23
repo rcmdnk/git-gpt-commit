@@ -27,7 +27,7 @@ EXCLUDE is a regex to exclude files from git diff. Multiple regexes can be separ
 TEMPLATE will be shown under the commit message as a comment.
 
 Default values are:
-    # ChatGPT model. gpt-4o is used if not defined.
+    # ChatGPT model. gpt-4o is used if not defined. (Valid models are: OpenAI's gpt*, chatgpt*, DeepSeek's deepseek*)
     MODEL="gpt-4o"
 
     # Prompt to make commit messages from git diff.
