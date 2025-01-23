@@ -140,6 +140,23 @@ if [ -f "$conf" ]; then
 fi
 
 MODEL="${MODEL:-$_MODEL}"
+
+
+if [[ "$MODEL" =~ ^deepseek* ]]; then
+  url="https://api.deepseek.com/chat/completions"
+  key_name="DEEPSEEK_API_KEY"
+else
+  url="https://api.openai.com/v1/chat/completions"
+  key_name="OPENAI_API_KEY"
+fi
+
+key="${!key_name}"
+if [ -z "$key" ]; then
+  echo "$key_name is not set. Please set $key_name environment variable."
+  exit 1
+fi
+
+
 PROMPT="${PROMPT:-$_PROMPT}"
 EXCLUDE="${EXCLUD-$_EXCLUDE}"
 if [ -z "$MESSAGE" ] && [ -n "$template" ] && [ -f "$template" ];then
@@ -163,16 +180,15 @@ $(git diff --cached $exclude_list)"
 content=$(echo "$content" | sed 's/\\/\\\\/g' | sed 's/\t/\\t/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
 input_json='{"model": "'$MODEL'", "messages": [{"role": "user", "content": "'"$content"'"}]}'
 
-json=$(curl -s https://api.openai.com/v1/chat/completions \
+json=$(curl -s "$url" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Authorization: Bearer $key" \
   -d "$input_json")
 
-commit_message=$(echo "$json"|grep "^        \"content\": \""|sed 's/^        \"content\": \"//'|sed 's/\",$//')
-echo "$json"
+commit_message=$(echo "$json"|sed -n 's/.*"content":[[:space:]]*"\([^"]*\)".*/\1/p'|sed s/\\\\n/\\$'\n'/)
 if [ -z "$commit_message" ];then
-  message=$(echo "$json"|grep "^        \"message\": \""|sed 's/^        \"message\": \"//'|sed 's/\",$//')
-  echo "Failed to get a response from OpenAI API."
+  message=$(echo "$json"|sed -n 's/.*"message":[[:space:]]*"\([^"]*\)".*/\1/p'|sed s/\\\\n/\\$'\n'/)
+  echo "Failed to get a response from the API (url=$url, model=$MODEL)."
   echo ""
   echo "$message"
   exit 1
