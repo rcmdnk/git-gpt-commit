@@ -177,7 +177,11 @@ content="$change$PROMPT
 
 $(git diff --cached $exclude_list)"
 
-content=$(echo "$content" | sed 's/\\/\\\\/g' | sed 's/\t/\\t/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+content=${content//\\/\\\\}
+content=${content//\t/\\t}
+content=${content//\"/\\\"}
+content=${content//$'\n'/\\\\n}
+
 input_json='{"model": "'$MODEL'", "messages": [{"role": "user", "content": "'"$content"'"}]}'
 
 json=$(curl -s "$url" \
@@ -194,7 +198,6 @@ if [ -z "$commit_message" ];then
   exit 1
 fi
 
-tmp_file=$(mktemp)
 git commit --no-verify -e -m "$commit_message" "$@"
 ret=$?
 if [ $ret -ne 0 ]; then
