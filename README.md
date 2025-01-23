@@ -27,8 +27,8 @@ EXCLUDE is a regex to exclude files from git diff. Multiple regexes can be separ
 TEMPLATE will be shown under the commit message as a comment.
 
 Default values are:
-    # ChatGPT model. If empty, cg's default value is used.
-    MODEL=""
+    # ChatGPT model. gpt-4o is used if not defined.
+    MODEL="gpt-4o"
 
     # Prompt to make commit messages from git diff.
     PROMPT="You will be provided with git diff output. Based on the provided diff, create concise and clear git commit messages.
@@ -62,6 +62,7 @@ test: add test for get_name
     # Commit message template. If empty, use content of $(git config --get commit.template) if exists.
     # If not defined, use content of $(git config --get commit.template) if exists. Set 'MESSAGE=""' to drop the message.
     MESSAGE # Not defined.
+
 ```
 
 The default prompt tries to create
