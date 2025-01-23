@@ -155,15 +155,30 @@ if [ -n "$EXCLUDE" ];then
   exclude_list="-- $exclude_list"
 fi
 
-# shellcheck disable=SC2086
-commit_message="$(cg ask $MODEL "${change}$PROMPT
+content="$change$PROMPT
 
 ### git diff
 
 $(git diff --cached $exclude_list)
-")
+"
 
-$MESSAGE"
+content=$(echo "$content" | sed 's/\\/\\\\/g' | sed 's/\t/\\t/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+input_json='{"model": "gpt-4o", "messages": [{"role": "user", "content": "'"$content"'"}]}'
+
+json=$(curl -s https://api.openai.com/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -d "$input_json")
+
+commit_message=$(echo "$json"|grep "^        \"content\": \""|sed 's/^        \"content\": \"//'|sed 's/\",$//')
+echo "$json"
+if [ -z "$commit_message" ];then
+  message=$(echo "$json"|grep "^        \"message\": \""|sed 's/^        \"message\": \"//'|sed 's/\",$//')
+  echo "Failed to get a response from OpenAI API."
+  echo ""
+  echo "$message"
+  exit 1
+fi
 
 tmp_file=$(mktemp)
 git commit --no-verify -e -m "$commit_message" "$@"
