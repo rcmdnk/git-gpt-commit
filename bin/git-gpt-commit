@@ -3,6 +3,15 @@
 _VERSION="0.0.12"
 
 _MODEL="gpt-4o"
+_ENDPOINT=""
+_ENDPOINT_OPENAI="https://api.openai.com/v1/chat/completions"
+_ENDPOINT_DEEPSEEK="https://api.deepseek.com/v1/chat/completions"
+_ENDPOINT_OLLAMA="http://localhost:11434/v1/chat/completions"
+_KEY_NAME=""
+_KEY_NAME_OPENAI="OPENAI_API_KEY"
+_KEY_NAME_DEEPSEEK="DEEPSEEK_API_KEY"
+
+
 _PROMPT="You will be provided with git diff output. Based on the provided diff, create concise and clear git commit messages.
 
 Each commit message must:
@@ -55,8 +64,14 @@ EXCLUDE is a regex to exclude files from git diff. Multiple regexes can be separ
 TEMPLATE will be shown under the commit message as a comment.
 
 Default values are:
-    # ChatGPT model. $_MODEL is used if not defined. (Valid models are: OpenAI's gpt*, chatgpt*, DeepSeek's deepseek*)
+    # ChatGPT model. $_MODEL is used if not defined.
     MODEL=\"$_MODEL\"
+
+    # API Endpoint. If not defined (or empty), use $_ENDPOINT_OPENAI ($_ENDPOINT_DEEPSEEK) for OpenAI (DeepSeek) models, or $_ENDPOINT_OLLAMA (Ollama local server) for others.
+    ENDPOINT=\"$_ENDPOINT\"
+
+    # API Key name in environment variable. If not defined (or empty), use $_KEY_NAME_OPENAI ($_KEY_NAME_DEEPSEEK) for OpenAI (DeepSeek) models.
+    KEY_NAME=\"$_KEY_NAME\"
 
     # Prompt to make commit messages from git diff.
     PROMPT=\"$_PROMPT\"
@@ -76,18 +91,59 @@ if ! type git >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! type cg >/dev/null 2>&1; then
-  echo "cg command not found. Please install cg command by Homebrew or Pip.
-    $ brew install chatgpt-prompt-wrapper
-or
-    $ pip install chatgpt-prompt-wrapper"
+if [ -f "$conf" ]; then
+  # shellcheck disable=SC1090
+  source "$conf"
+fi
+
+MODEL="${MODEL:-$_MODEL}"
+ENDPOINT="${ENDPOINT:-$_ENDPOINT}"
+KEY_NAME="${KEY_NAME:-$_KEY_NAME}"
+
+
+if [[ "$MODEL" =~ ^gpt* ]] || [[ "$MODEL" =~ ^chatgpt* ]] || [[ "$MODEL" =~ ^o1-* ]]; then
+  ENDPOINT="${ENDPOINT:-$_ENDPOINT_OPENAI}"
+  KEY_NAME="${KEY_NAME:-$_KEY_NAME_OPENAI}"
+elif [[ "$MODEL" =~ ^deepseek* ]]; then
+  ENDPOINT="${ENDPOINT:-$_ENDPOINT_DEEPSEEK}"
+  KEY_NAME="${KEY_NAME:-$_KEY_NAME_DEEPSEEK}"
+else
+  ENDPOINT="${ENDPOINT:-$_ENDPOINT_OLLAMA}"
+fi
+
+if [ -z "$ENDPOINT" ]; then
+  echo "ENDPOINT is needed to be set for $MODEL model."
   exit 1
 fi
 
-if [ -z "$OPENAI_API_KEY" ]; then
-  echo "OPENAI_API_KEY is not set. Please set OPENAI_API_KEY environment variable."
-  exit 1
+key=""
+if [ -z "$KEY_NAME" ]; then
+  if [ "$ENDPOINT" = "$_ENDPOINT_OPENAI" ] || [ "$ENDPOINT" = "$_ENDPOINT_DEEPSEEK" ]; then
+    echo "KEY_NAME is needed to be set for $MODEL model."
+    exit 1
+  fi
+else
+  key="${!KEY_NAME}"
+  if [ -z "$key" ]; then
+    echo "$KEY_NAME is not set. Please set $KEY_NAME environment variable."
+    exit 1
+  fi
 fi
+
+PROMPT="${PROMPT:-$_PROMPT}"
+EXCLUDE="${EXCLUD-$_EXCLUDE}"
+if [ -z "$MESSAGE" ] && [ -n "$template" ] && [ -f "$template" ];then
+  MESSAGE="${MESSAGE-$(cat "$template")}"
+fi
+
+exclude_list=""
+if [ -n "$EXCLUDE" ];then
+  for exclude in $(echo "$EXCLUDE" | tr ',' ' ');do
+    exclude_list="$exclude_list :(exclude)$topdir/$exclude"
+  done
+  exclude_list="-- $exclude_list"
+fi
+
 
 if echo " $* " | grep -q " -a ";then
   modified=$(git status --porcelain | grep " M"|awk '{print $2}')
@@ -134,43 +190,7 @@ if ! echo " $* " | grep -q -e " -n " -e " --no-verify ";then
   fi
 fi
 
-if [ -f "$conf" ]; then
-  # shellcheck disable=SC1090
-  source "$conf"
-fi
-
-MODEL="${MODEL:-$_MODEL}"
-
-
-if [[ "$MODEL" =~ ^deepseek* ]]; then
-  url="https://api.deepseek.com/chat/completions"
-  key_name="DEEPSEEK_API_KEY"
-else
-  url="https://api.openai.com/v1/chat/completions"
-  key_name="OPENAI_API_KEY"
-fi
-
-key="${!key_name}"
-if [ -z "$key" ]; then
-  echo "$key_name is not set. Please set $key_name environment variable."
-  exit 1
-fi
-
-
-PROMPT="${PROMPT:-$_PROMPT}"
-EXCLUDE="${EXCLUD-$_EXCLUDE}"
-if [ -z "$MESSAGE" ] && [ -n "$template" ] && [ -f "$template" ];then
-  MESSAGE="${MESSAGE-$(cat "$template")}"
-fi
-
-exclude_list=""
-if [ -n "$EXCLUDE" ];then
-  for exclude in $(echo "$EXCLUDE" | tr ',' ' ');do
-    exclude_list="$exclude_list :(exclude)$topdir/$exclude"
-  done
-  exclude_list="-- $exclude_list"
-fi
-
+# shellcheck disable=SC2086
 content="$change$PROMPT
 
 ### git diff
@@ -184,7 +204,7 @@ content=${content//$'\n'/\\\\n}
 
 input_json='{"model": "'$MODEL'", "messages": [{"role": "user", "content": "'"$content"'"}]}'
 
-json=$(curl -s "$url" \
+json=$(curl -s "$ENDPOINT" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $key" \
   -d "$input_json")
@@ -192,7 +212,7 @@ json=$(curl -s "$url" \
 commit_message=$(echo "$json"|sed -n 's/.*"content":[[:space:]]*"\([^"]*\)".*/\1/p'|sed s/\\\\n/\\$'\n'/)
 if [ -z "$commit_message" ];then
   message=$(echo "$json"|sed -n 's/.*"message":[[:space:]]*"\([^"]*\)".*/\1/p'|sed s/\\\\n/\\$'\n'/)
-  echo "Failed to get a response from the API (url=$url, model=$MODEL)."
+  echo "Failed to get a response from the API (ENDPOINT=$ENDPOINT, MODEL=$MODEL)."
   echo ""
   echo "$message"
   exit 1
