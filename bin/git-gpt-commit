@@ -2,7 +2,7 @@
 
 _VERSION="0.0.9"
 
-_MODEL=""
+_MODEL="gpt-4o"
 _PROMPT="You will be provided with git diff output. Based on the provided diff, create concise and clear git commit messages.
 
 Each commit message must:
@@ -55,7 +55,7 @@ EXCLUDE is a regex to exclude files from git diff. Multiple regexes can be separ
 TEMPLATE will be shown under the commit message as a comment.
 
 Default values are:
-    # ChatGPT model. If empty, cg's default value is used.
+    # ChatGPT model. $_MODEL is used if not defined.
     MODEL=\"$_MODEL\"
 
     # Prompt to make commit messages from git diff.
@@ -140,7 +140,6 @@ if [ -f "$conf" ]; then
 fi
 
 MODEL="${MODEL:-$_MODEL}"
-MODEL="${MODEL:+-m $MODEL}"
 PROMPT="${PROMPT:-$_PROMPT}"
 EXCLUDE="${EXCLUD-$_EXCLUDE}"
 if [ -z "$MESSAGE" ] && [ -n "$template" ] && [ -f "$template" ];then
@@ -159,11 +158,10 @@ content="$change$PROMPT
 
 ### git diff
 
-$(git diff --cached $exclude_list)
-"
+$(git diff --cached $exclude_list)"
 
 content=$(echo "$content" | sed 's/\\/\\\\/g' | sed 's/\t/\\t/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
-input_json='{"model": "gpt-4o", "messages": [{"role": "user", "content": "'"$content"'"}]}'
+input_json='{"model": "'$MODEL'", "messages": [{"role": "user", "content": "'"$content"'"}]}'
 
 json=$(curl -s https://api.openai.com/v1/chat/completions \
   -H "Content-Type: application/json" \
