@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-_VERSION="0.0.13"
+_VERSION="0.0.14"
 
 _MODEL="gpt-4o"
 _ENDPOINT=""
