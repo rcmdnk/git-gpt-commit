@@ -209,9 +209,11 @@ json=$(curl -s "$ENDPOINT" \
   -H "Authorization: Bearer $key" \
   -d "$input_json")
 
-commit_message=$(echo "$json"|sed -n 's/.*"content":[[:space:]]*"\([^"]*\)".*/\1/p'|sed s/\\\\n/\\$'\n'/g)
+commit_message=$(echo "$json"|sed -n 's/.*"content":[[:space:]]*"\([^"]*\)".*/\1/p')
+commit_message=${commit_message//\\n/$'\n'}
 if [ -z "$commit_message" ];then
-  message=$(echo "$json"|sed -n 's/.*"message":[[:space:]]*"\([^"]*\)".*/\1/p'|sed s/\\\\n/\\$'\n'/g)
+  message=$(echo "$json"|sed -n 's/.*"message":[[:space:]]*"\([^"]*\)".*/\1/p')
+  message=${message//\\n/$'\n'}
   echo "Failed to get a response from the API (ENDPOINT=$ENDPOINT, MODEL=$MODEL)."
   echo ""
   echo "$message"
