@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-_VERSION="0.0.15"
+_VERSION="0.0.16"
 
 _MODEL="gpt-4o"
 _ENDPOINT=""
@@ -46,6 +46,32 @@ template=$(git config --get commit.template)
 template="${template/#\~/$HOME}"
 topdir=$(git rev-parse --show-toplevel)
 program=$(basename "$0")
+
+function encode {
+  local str="$*"
+  str=${str//\\/\\\\}
+  str=${str//\"/\\\"}
+  str=${str//$'\t'/\\t}
+  str=${str//$'\n'/\\n}
+  echo "$str"
+}
+
+function extract {
+  local key="$1"
+  shift
+  local json="$*"
+  # shellcheck disable=SC2059
+  printf "$(echo "$json"|sed -n 's/.*"'"$key"'":[[:space:]]*"\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')"
+}
+
+function restore {
+  if [ -n "$modified" ];then
+    for f in $modified;do
+      git restore --staged "$topdir/$f"
+    done
+  fi
+}
+
 
 if [ "$1" = "-v" ] || [ "$1" = "--version" ]; then
   echo "$program" "$_VERSION"
@@ -168,14 +194,6 @@ if echo " $* " | grep -q -e " -c " -e " --change ";then
   done
 fi
 
-restore () {
-  if [ -n "$modified" ];then
-    for f in $modified;do
-      git restore --staged "$topdir/$f"
-    done
-  fi
-}
-
 if ! git status | grep -q "Changes to be committed";then
   git commit
   exit
@@ -197,10 +215,7 @@ content="$change$PROMPT
 
 $(git diff --cached $exclude_list)"
 
-content=${content//\\/\\\\}
-content=${content//\t/\\t}
-content=${content//\"/\\\"}
-content=${content//$'\n'/\\\\n}
+content=$(encode "$content")
 
 input_json='{"model": "'$MODEL'", "messages": [{"role": "user", "content": "'"$content"'"}]}'
 
@@ -209,11 +224,9 @@ json=$(curl -s "$ENDPOINT" \
   -H "Authorization: Bearer $key" \
   -d "$input_json")
 
-commit_message=$(echo "$json"|sed -n 's/.*"content":[[:space:]]*"\([^"]*\)".*/\1/p')
-commit_message=${commit_message//\\n/$'\n'}
+commit_message=$(extract "content" "$json")
 if [ -z "$commit_message" ];then
-  message=$(echo "$json"|sed -n 's/.*"message":[[:space:]]*"\([^"]*\)".*/\1/p')
-  message=${message//\\n/$'\n'}
+  message=$(extract "message" "$json")
   echo "Failed to get a response from the API (ENDPOINT=$ENDPOINT, MODEL=$MODEL)."
   echo ""
   echo "$message"
