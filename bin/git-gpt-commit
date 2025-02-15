@@ -53,7 +53,7 @@ function encode {
   str=${str//\"/\\\"}
   str=${str//$'\t'/\\t}
   str=${str//$'\n'/\\n}
-  str=${str///}
+  str=${str//$'\r'/}
   echo "$str"
 }
 
