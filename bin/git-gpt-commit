@@ -6,10 +6,12 @@ _MODEL="gpt-4o"
 _ENDPOINT=""
 _ENDPOINT_OPENAI="https://api.openai.com/v1/chat/completions"
 _ENDPOINT_DEEPSEEK="https://api.deepseek.com/v1/chat/completions"
+_ENDPOINT_GEMINI="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 _ENDPOINT_OLLAMA="http://localhost:11434/v1/chat/completions"
 _KEY_NAME=""
 _KEY_NAME_OPENAI="OPENAI_API_KEY"
 _KEY_NAME_DEEPSEEK="DEEPSEEK_API_KEY"
+_KEY_NAME_GEMINI="GEMINI_API_KEY"
 
 
 _PROMPT="You will be provided with git diff output. Based on the provided diff, create concise and clear git commit messages.
@@ -94,10 +96,10 @@ Default values are:
     # ChatGPT model. $_MODEL is used if not defined.
     MODEL=\"$_MODEL\"
 
-    # API Endpoint. If not defined (or empty), use $_ENDPOINT_OPENAI ($_ENDPOINT_DEEPSEEK) for OpenAI (DeepSeek) models, or $_ENDPOINT_OLLAMA (Ollama local server) for others.
+    # API Endpoint. If not defined (or empty), use $_ENDPOINT_OPENAI ($_ENDPOINT_DEEPSEEK, $_ENDPOINT_GEMINI) for OpenAI (DeepSeek, Gemini) models, or $_ENDPOINT_OLLAMA (Ollama local server) for others.
     ENDPOINT=\"$_ENDPOINT\"
 
-    # API Key name in environment variable. If not defined (or empty), use $_KEY_NAME_OPENAI ($_KEY_NAME_DEEPSEEK) for OpenAI (DeepSeek) models.
+    # API Key name in environment variable. If not defined (or empty), use $_KEY_NAME_OPENAI ($_KEY_NAME_DEEPSEEK, $_KEY_NAME_GEMINI) for OpenAI (DeepSeek, Gemini) models.
     KEY_NAME=\"$_KEY_NAME\"
 
     # Prompt to make commit messages from git diff.
@@ -134,6 +136,9 @@ if [[ "$MODEL" =~ ^gpt* ]] || [[ "$MODEL" =~ ^chatgpt* ]] || [[ "$MODEL" =~ ^o1-
 elif [[ "$MODEL" =~ ^deepseek* ]]; then
   ENDPOINT="${ENDPOINT:-$_ENDPOINT_DEEPSEEK}"
   KEY_NAME="${KEY_NAME:-$_KEY_NAME_DEEPSEEK}"
+elif [[ "$MODEL" =~ ^gemini* ]]; then
+  ENDPOINT="${ENDPOINT:-$_ENDPOINT_GEMINI}"
+  KEY_NAME="${KEY_NAME:-$_KEY_NAME_GEMINI}"
 else
   ENDPOINT="${ENDPOINT:-$_ENDPOINT_OLLAMA}"
 fi
@@ -145,7 +150,7 @@ fi
 
 key=""
 if [ -z "$KEY_NAME" ]; then
-  if [ "$ENDPOINT" = "$_ENDPOINT_OPENAI" ] || [ "$ENDPOINT" = "$_ENDPOINT_DEEPSEEK" ]; then
+  if [ "$ENDPOINT" = "$_ENDPOINT_OPENAI" ] || [ "$ENDPOINT" = "$_ENDPOINT_DEEPSEEK" ] || [ "$ENDPOINT" = "$_ENDPOINT_GEMINI" ]; then
     echo "KEY_NAME is needed to be set for $MODEL model."
     exit 1
   fi
