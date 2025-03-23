@@ -34,8 +34,9 @@ Rules for output:
 4. Separate categories only if they address distinct types of changes.
 
 Example output format:
-feat: add get_name function to get user name
-test: add test for get_name
+
+    feat: add get_name function to get user name
+    test: add test for get_name
 
 "
 
@@ -93,24 +94,25 @@ EXCLUDE is a regex to exclude files from git diff. Multiple regexes can be separ
 TEMPLATE will be shown under the commit message as a comment.
 
 Default values are:
-    # ChatGPT model. $_MODEL is used if not defined.
-    MODEL=\"$_MODEL\"
 
-    # API Endpoint. If not defined (or empty), use $_ENDPOINT_OPENAI ($_ENDPOINT_DEEPSEEK, $_ENDPOINT_GEMINI) for OpenAI (DeepSeek, Gemini) models, or $_ENDPOINT_OLLAMA (Ollama local server) for others.
-    ENDPOINT=\"$_ENDPOINT\"
+# ChatGPT model. $_MODEL is used if not defined.
+MODEL=\"$_MODEL\"
 
-    # API Key name in environment variable. If not defined (or empty), use $_KEY_NAME_OPENAI ($_KEY_NAME_DEEPSEEK, $_KEY_NAME_GEMINI) for OpenAI (DeepSeek, Gemini) models.
-    KEY_NAME=\"$_KEY_NAME\"
+# API Endpoint. If not defined (or empty), use $_ENDPOINT_OPENAI ($_ENDPOINT_DEEPSEEK, $_ENDPOINT_GEMINI) for OpenAI (DeepSeek, Gemini) models, or $_ENDPOINT_OLLAMA (Ollama local server) for others.
+ENDPOINT=\"$_ENDPOINT\"
 
-    # Prompt to make commit messages from git diff.
-    PROMPT=\"$_PROMPT\"
+# API Key name in environment variable. If not defined (or empty), use $_KEY_NAME_OPENAI ($_KEY_NAME_DEEPSEEK, $_KEY_NAME_GEMINI) for OpenAI (DeepSeek, Gemini) models.
+KEY_NAME=\"$_KEY_NAME\"
 
-    # Regex to exclude files from git diff. Multiple regexes can be separated by ','.
-    EXCLUDE=\"$_EXCLUDE\"
+# Prompt to make commit messages from git diff.
+PROMPT=\"$_PROMPT\"
 
-    # Commit message template. If empty, use content of \$(git config --get commit.template) if exists.
-    # If not defined, use content of \$(git config --get commit.template) if exists. Set 'MESSAGE=\"\"' to drop the message.
-    MESSAGE # Not defined.
+# Regex to exclude files from git diff. Multiple regexes can be separated by ','.
+EXCLUDE=\"$_EXCLUDE\"
+
+# Commit message template. If empty, use content of \$(git config --get commit.template) if exists.
+# If not defined, use content of \$(git config --get commit.template) if exists. Set 'MESSAGE=\"\"' to drop the message.
+MESSAGE # Not defined.
 "
   exit
 fi
