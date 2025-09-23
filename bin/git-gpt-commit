@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2001
 
-_VERSION="0.0.17"
+_VERSION="0.0.18"
 
-_MODEL="gpt-4o"
+_MODEL="gpt-5"
 _ENDPOINT=""
 _ENDPOINT_OPENAI="https://api.openai.com/v1/chat/completions"
 _ENDPOINT_DEEPSEEK="https://api.deepseek.com/v1/chat/completions"
@@ -13,35 +14,36 @@ _KEY_NAME_OPENAI="OPENAI_API_KEY"
 _KEY_NAME_DEEPSEEK="DEEPSEEK_API_KEY"
 _KEY_NAME_GEMINI="GEMINI_API_KEY"
 
+_MESSAGE_PREFIXES="feat: (new feature for the user, not a new feature for build script)
+fix: (bug fix for the user, not a fix to a build script)
+docs: (changes to the documentation)
+style: (formatting, missing semi colons, etc; no production code change)
+refactor: (refactoring production code, eg. renaming a variable)
+test: (adding missing tests, refactoring tests; no production code change)
+chore: (updating grunt tasks etc; no production code change)"
 
-_PROMPT="You will be provided with git diff output. Based on the provided diff, create concise and clear git commit messages.
+_PROMPT="Given a git diff, write concise and clear commit messages.
 
 Each commit message must:
+
 - Be written on one line.
 - Start with one of the following prefixes, depending on the type of change:
-  - feat: (introducing a new feature or functionality visible to the user)
-  - fix: (fixing a bug or issue that affects users)
-  - docs: (updating or improving documentation only)
-  - style: (non-functional changes like code formatting, removing extra spaces, etc.)
-  - refactor: (modifying existing code without changing its behavior, e.g., renaming variables, restructuring code)
-  - test: (adding or updating tests without changing production code)
-  - chore: (updates to build tools, configurations, or non-production-related changes)
+$(echo "$_MESSAGE_PREFIXES" | sed 's/^/  - /')
 
 Rules for output:
+
 1. Only output plain commit messages with no additional comments, bullet points, or formatting.
 2. Summarize changes into as few lines as possible, ideally within 3 lines.
 3. Group related changes under the same category when possible.
 4. Separate categories only if they address distinct types of changes.
 
 Example output format:
-feat: add get_name function to get user name
-test: add test for get_name
 
+    feat: add get_name function to get user name
+    test: add test for get_name
 "
 
 _EXCLUDE="*.lock"
-
-_MESSAGE=""
 
 conf=${XDG_CONFIG_HOME:-$HOME/.config}/git_gpt_commit/config
 template=$(git config --get commit.template)
@@ -87,12 +89,10 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 Options are the same as git commit.
 In addition, [-c | --change] option is available to tell contents of changes to $program.
 
-You can change PROMPT, EXCLUDE, and MESSAGE by editing \${XDG_CONFIG_HOME:-\$HOME/.config}/git_gpt_commit/config.
-PROMPT is a prompt message how to make a commit message from git diff.
-EXCLUDE is a regex to exclude files from git diff. Multiple regexes can be separated by ','.
-TEMPLATE will be shown under the commit message as a comment.
+You can set configurations in \${XDG_CONFIG_HOME:-\$HOME/.config}/git_gpt_commit/config.
 
 Default values are:
+
     # ChatGPT model. $_MODEL is used if not defined.
     MODEL=\"$_MODEL\"
 
@@ -103,14 +103,18 @@ Default values are:
     KEY_NAME=\"$_KEY_NAME\"
 
     # Prompt to make commit messages from git diff.
-    PROMPT=\"$_PROMPT\"
+    PROMPT=\"<PROMPT>\"
 
     # Regex to exclude files from git diff. Multiple regexes can be separated by ','.
     EXCLUDE=\"$_EXCLUDE\"
 
-    # Commit message template. If empty, use content of \$(git config --get commit.template) if exists.
-    # If not defined, use content of \$(git config --get commit.template) if exists. Set 'MESSAGE=\"\"' to drop the message.
-    MESSAGE # Not defined.
+    # Commit message template. If not defined, use the content of \$(git config --get commit.template) if exists.
+    # Set MESSAGE=\"\" to ignore the template file.
+    # Default is not set so that the template file is used if exists.
+
+Default PROMPT is:
+
+$(echo "$_PROMPT" | sed 's/^/    /')
 "
   exit
 fi
@@ -237,6 +241,11 @@ if [ -z "$commit_message" ];then
   echo ""
   echo "$message"
   exit 1
+fi
+if [ -n "$MESSAGE" ];then
+  commit_message="$commit_message
+$MESSAGE
+"
 fi
 
 git commit --no-verify -e -m "$commit_message" "$@"
