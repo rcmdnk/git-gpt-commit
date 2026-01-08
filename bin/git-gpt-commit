@@ -5,7 +5,7 @@
 _VERSION="0.0.18"
 
 _METHOD="api"
-_MIODEL=""
+_MODEL=""
 _API_MODEL="gemini-2.5-flash-lite"
 _ENDPOINT=""
 _ENDPOINT_OPENAI="https://api.openai.com/v1/chat/completions"
@@ -79,10 +79,13 @@ You can set configurations in \${XDG_CONFIG_HOME:-\$HOME/.config}/git_gpt_commit
 
 Default values are:
 
-    # AI method. 'api' or any of agents cli (e.g. 'claude', 'codex'). $_METHOD is used if not defined.
+    # AI method. 'api' or any of agents cli (e.g. 'claude', 'codex').
     METHOD=\"$_METHOD\"
 
-    # AI model. $_MODEL is used if not defined.
+    # API model.
+    API_MODEL=\"$_MODEL\"
+
+    # AI model. If both MODEL and API_MODEL are set for 'api' METHOD, MODEL has priority.
     MODEL=\"$_MODEL\"
 
     # API Endpoint. If empty, use predefined Endpoint.
