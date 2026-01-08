@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2001
+# shellcheck disable=SC2001,2155
 
+# Default values {{{
 _VERSION="0.0.18"
 
-_MODEL="gpt-5"
+_METHOD="api"
+_MODEL="gemini-2.5-flash-lite"
 _ENDPOINT=""
 _ENDPOINT_OPENAI="https://api.openai.com/v1/chat/completions"
 _ENDPOINT_DEEPSEEK="https://api.deepseek.com/v1/chat/completions"
@@ -44,56 +46,42 @@ Example output format:
 "
 
 _EXCLUDE="*.lock"
+# }}} Default values
 
-conf=${XDG_CONFIG_HOME:-$HOME/.config}/git_gpt_commit/config
-template=$(git config --get commit.template)
-template="${template/#\~/$HOME}"
-topdir=$(git rev-parse --show-toplevel)
-program=$(basename "$0")
+# Other basic values {{{
+CONF=${XDG_CONFIG_HOME:-$HOME/.config}/git_gpt_commit/config
+TEMPLATE=$(git config --get commit.template)
+TEMPLATE="${TEMPLATE/#\~/$HOME}"
+TOPDIR=$(git rev-parse --show-toplevel)
+PROGRAM=$(basename "$0")
+# }}} Other basic values
 
-function encode {
-  local str="$*"
-  str=${str//\\/\\\\}
-  str=${str//\"/\\\"}
-  str=${str//$'\t'/\\t}
-  str=${str//$'\n'/\\n}
-  str=${str//$'\r'/}
-  echo "$str"
+# {{{ Functions
+function version {
+  echo "$PROGRAM" "$_VERSION"
 }
 
-function extract {
-  local key="$1"
-  shift
-  local json="$*"
-  # shellcheck disable=SC2059
-  printf "$(echo "$json"|sed -n 's/.*"'"$key"'":[[:space:]]*"\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')"
-}
-
-function restore {
-  if [ -n "$modified" ];then
-    for f in $modified;do
-      git restore --staged "$topdir/$f"
-    done
+function version_wrapper {
+  if [ "$1" = "-v" ] || [ "$1" = "--version" ]; then
+    version
+    exit
   fi
 }
 
-
-if [ "$1" = "-v" ] || [ "$1" = "--version" ]; then
-  echo "$program" "$_VERSION"
-  exit
-fi
-
-if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
-  echo "Usage: git gpt-commit [options] [--] [<pathspec>...]
+function usage {
+  echo "Usage: git gpt-commit [-v | --version] [-h | --help] [-c | --change \"change description\"]
 
 Options are the same as git commit.
-In addition, [-c | --change] option is available to tell contents of changes to $program.
+In addition, [-c | --change] option is available to tell contents of changes to $PROGRAM.
 
 You can set configurations in \${XDG_CONFIG_HOME:-\$HOME/.config}/git_gpt_commit/config.
 
 Default values are:
 
-    # ChatGPT model. $_MODEL is used if not defined.
+    # AI method. 'api' or any of agents cli (e.g. 'claude', 'codex'). $_METHOD is used if not defined.
+    METHOD=\"$_METHOD\"
+
+    # AI model. $_MODEL is used if not defined.
     MODEL=\"$_MODEL\"
 
     # API Endpoint. If empty, use predefined Endpoint.
@@ -116,141 +104,235 @@ Default PROMPT is:
 
 $(echo "$_PROMPT" | sed 's/^/    /')
 "
-  exit
-fi
+}
 
-if ! type git >/dev/null 2>&1; then
-  echo "git command not found. Please install git command."
-  exit 1
-fi
-
-if [ -f "$conf" ]; then
-  # shellcheck disable=SC1090
-  source "$conf"
-fi
-
-MODEL="${MODEL:-$_MODEL}"
-ENDPOINT="${ENDPOINT:-$_ENDPOINT}"
-KEY_NAME="${KEY_NAME:-$_KEY_NAME}"
+function help_wapper {
+  if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    usage
+    exit
+  fi
+}
 
 
-if [[ "$MODEL" =~ ^gpt* ]] || [[ "$MODEL" =~ ^chatgpt* ]] || [[ "$MODEL" =~ ^o1-* ]]; then
-  ENDPOINT="${ENDPOINT:-$_ENDPOINT_OPENAI}"
-  KEY_NAME="${KEY_NAME:-$_KEY_NAME_OPENAI}"
-elif [[ "$MODEL" =~ ^deepseek* ]]; then
-  ENDPOINT="${ENDPOINT:-$_ENDPOINT_DEEPSEEK}"
-  KEY_NAME="${KEY_NAME:-$_KEY_NAME_DEEPSEEK}"
-elif [[ "$MODEL" =~ ^gemini* ]]; then
-  ENDPOINT="${ENDPOINT:-$_ENDPOINT_GEMINI}"
-  KEY_NAME="${KEY_NAME:-$_KEY_NAME_GEMINI}"
-else
-  ENDPOINT="${ENDPOINT:-$_ENDPOINT_OLLAMA}"
-fi
-
-if [ -z "$ENDPOINT" ]; then
-  echo "ENDPOINT is needed to be set for $MODEL model."
-  exit 1
-fi
-
-key=""
-if [ -z "$KEY_NAME" ]; then
-  if [ "$ENDPOINT" = "$_ENDPOINT_OPENAI" ] || [ "$ENDPOINT" = "$_ENDPOINT_DEEPSEEK" ] || [ "$ENDPOINT" = "$_ENDPOINT_GEMINI" ]; then
-    echo "KEY_NAME is needed to be set for $MODEL model."
+function check_git {
+  if ! type git >/dev/null 2>&1; then
+    echo "git command not found. Please install git command."
     exit 1
   fi
-else
-  key="${!KEY_NAME}"
-  if [ -z "$key" ]; then
-    echo "$KEY_NAME is not set. Please set $KEY_NAME environment variable."
-    exit 1
+}
+
+function set_variables {
+  key=""
+  exclude_list=""
+
+  if [ -f "$CONF" ]; then
+    # shellcheck disable=SC1090
+    source "$CONF"
   fi
-fi
 
-PROMPT="${PROMPT:-$_PROMPT}"
-EXCLUDE="${EXCLUD-$_EXCLUDE}"
-if [ -z "$MESSAGE" ] && [ -n "$template" ] && [ -f "$template" ];then
-  MESSAGE="${MESSAGE-$(cat "$template")}"
-fi
+  METHOD="${METHOD:-$_METHOD}"
+  MODEL="${MODEL:-$_MODEL}"
+  ENDPOINT="${ENDPOINT:-$_ENDPOINT}"
+  KEY_NAME="${KEY_NAME:-$_KEY_NAME}"
 
-exclude_list=""
-if [ -n "$EXCLUDE" ];then
-  for exclude in $(echo "$EXCLUDE" | tr ',' ' ');do
-    exclude_list="$exclude_list :(exclude)$topdir/$exclude"
-  done
-  exclude_list="-- $exclude_list"
-fi
+  if [ "$METHOD" == "api" ]; then
+    if [[ "$MODEL" =~ ^gpt* ]] || [[ "$MODEL" =~ ^chatgpt* ]] || [[ "$MODEL" =~ ^o1-* ]]; then
+      ENDPOINT="${ENDPOINT:-$_ENDPOINT_OPENAI}"
+      KEY_NAME="${KEY_NAME:-$_KEY_NAME_OPENAI}"
+    elif [[ "$MODEL" =~ ^deepseek* ]]; then
+      ENDPOINT="${ENDPOINT:-$_ENDPOINT_DEEPSEEK}"
+      KEY_NAME="${KEY_NAME:-$_KEY_NAME_DEEPSEEK}"
+    elif [[ "$MODEL" =~ ^gemini* ]]; then
+      ENDPOINT="${ENDPOINT:-$_ENDPOINT_GEMINI}"
+      KEY_NAME="${KEY_NAME:-$_KEY_NAME_GEMINI}"
+    else
+      ENDPOINT="${ENDPOINT:-$_ENDPOINT_OLLAMA}"
+    fi
 
+    if [ -z "$ENDPOINT" ]; then
+      echo "ENDPOINT is needed to be set for $MODEL model."
+      exit 1
+    fi
 
-if echo " $* " | grep -q " -a ";then
+    if [ -z "$KEY_NAME" ]; then
+      if [ "$ENDPOINT" = "$_ENDPOINT_OPENAI" ] || [ "$ENDPOINT" = "$_ENDPOINT_DEEPSEEK" ] || [ "$ENDPOINT" = "$_ENDPOINT_GEMINI" ]; then
+        echo "KEY_NAME is needed to be set for $MODEL model."
+        exit 1
+      fi
+    else
+      key="${!KEY_NAME}"
+      if [ -z "$key" ]; then
+        echo "$KEY_NAME is not set. Please set $KEY_NAME environment variable."
+        exit 1
+      fi
+    fi
+  fi
+
+  PROMPT="${PROMPT:-$_PROMPT}"
+  EXCLUDE="${EXCLUD-$_EXCLUDE}"
+  if [ -z "$MESSAGE" ] && [ -n "$TEMPLATE" ] && [ -f "$TEMPLATE" ];then
+    MESSAGE="${MESSAGE-$(cat "$TEMPLATE")}"
+  fi
+
+  if [ -n "$EXCLUDE" ];then
+    local exclude
+    for exclude in $(echo "$EXCLUDE" | tr ',' ' ');do
+      exclude_list="$exclude_list :(exclude)$TOPDIR/$exclude"
+    done
+    exclude_list="-- $exclude_list"
+  fi
+}
+
+function restore {
+  if [ -n "$modified" ];then
+    for f in $modified;do
+      git restore --staged "$TOPDIR/$f"
+    done
+  fi
+}
+
+function git_add {
   modified=$(git status --porcelain | grep " M"|awk '{print $2}')
   git add -u
-fi
+  trap restore EXIT
+}
 
-change=""
-if echo " $* " | grep -q -e " -c " -e " --change ";then
-  is_change=0
-  for v;do
-    shift
-    if [ "$v" = "-c" ] || [ "$v" = "--change" ];then
-      is_change=1
-      continue
-    fi
-    if [ "$is_change" -eq 1 ];then
-      change="This commit is for: $v"$'\n'
-      is_change=0
-      continue
-    fi
-    set -- "$@" "$v"
-  done
-fi
-
-if ! git status | grep -q "Changes to be committed";then
-  git commit
-  exit
-fi
-
-if ! echo " $* " | grep -q -e " -n " -e " --no-verify ";then
-  git hook run --ignore-missing pre-commit
-  ret=$?
-  if [ $ret -ne 0 ]; then
-    restore
-    exit $ret
+function git_add_wrapper {
+  if echo " ${args[*]} " | grep -q " -a ";then
+    git_add
   fi
-fi
+}
 
-# shellcheck disable=SC2086
-content="$change$PROMPT
+function check_status {
+  local status="$(git status)"
+  if ! echo "$status" | grep -q "Changes to be committed";then
+    echo "$status"
+    exit 1
+  fi
+}
+
+function pre_commit {
+  if ! echo " ${args[*]} " | grep -q -e " -n " -e " --no-verify ";then
+    git hook run --ignore-missing pre-commit
+    local ret=$?
+    if [ $ret -ne 0 ]; then
+      exit $ret
+    fi
+  fi
+}
+
+function parse_change {
+  local filtered=()
+  change=""
+
+  local need=0 v
+  for v in "${args[@]}";do
+    if [[ $v == "-c" || $v == "--change" ]]; then
+      need=1
+      continue
+    fi
+    if (( need )); then
+      change="This commit is for: $v"$'\n'
+      need=0
+      continue
+    fi
+    filtered+=("$v")
+  done
+  args=("${filtered[@]}")
+}
+
+function encode {
+  local str="$*"
+  str=${str//\\/\\\\}
+  str=${str//\"/\\\"}
+  str=${str//$'\t'/\\t}
+  str=${str//$'\n'/\\n}
+  str=${str//$'\r'/}
+  echo "$str"
+}
+
+function make_content {
+  # shellcheck disable=SC2086
+  content="$change$PROMPT
 
 ### git diff
 
 $(git diff --cached $exclude_list)"
 
-content=$(encode "$content")
+  content=$(encode "$content")
+}
 
-input_json='{"model": "'$MODEL'", "messages": [{"role": "user", "content": "'"$content"'"}]}'
+function extract {
+  local key="$1"
+  shift
+  local json="$*"
+  # shellcheck disable=SC2059
+  printf "$(echo "$json"|sed -n 's/.*"'"$key"'":[[:space:]]*"\([^"\\]*\(\\.[^"\\]*\)*\)".*/\1/p')"
+}
 
-json=$(curl -s "$ENDPOINT" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $key" \
-  -d "$input_json")
+function make_message_with_api {
+  local input_json='{"model": "'$MODEL'", "messages": [{"role": "user", "content": "'"$content"'"}]}'
+  local json=$(curl -s "$ENDPOINT" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $key" \
+    -d "$input_json")
 
-commit_message=$(extract "content" "$json")
-if [ -z "$commit_message" ];then
-  message=$(extract "message" "$json")
-  echo "Failed to get a response from the API (ENDPOINT=$ENDPOINT, MODEL=$MODEL)."
-  echo ""
-  echo "$message"
-  exit 1
-fi
-if [ -n "$MESSAGE" ];then
-  commit_message="$commit_message
-$MESSAGE
-"
-fi
+  commit_message=$(extract "content" "$json")
+  if [ -z "$commit_message" ];then
+    message=$(extract "message" "$json")
+    echo "Failed to get a response from the API (ENDPOINT=$ENDPOINT, MODEL=$MODEL)."
+    echo ""
+    echo "$message"
+    exit 1
+  fi
+  if [ -n "$MESSAGE" ];then
+    commit_message="$commit_message
+  $MESSAGE
+  "
+  fi
+}
 
-git commit --no-verify -e -m "$commit_message" "$@"
-ret=$?
-if [ $ret -ne 0 ]; then
-  restore
-fi
-exit $ret
+function make_message_with_agent {
+  commit_message="$("$METHOD" exec "$content" 2>/dev/null)"
+  ret=$?
+  if [ $ret -ne 0 ]; then
+    echo "Failed to get a response from the agent ($METHOD)."
+    echo ""
+    echo "$commit_message"
+    exit $ret
+  fi
+}
+
+function make_message {
+  if [ "$METHOD" == "api" ]; then
+    make_message_with_api
+  else
+    make_message_with_agent
+  fi
+}
+
+function commit {
+  git commit --no-verify -e -m "$commit_message" "${args[@]}"
+  local ret=$?
+  if [ $ret -eq 0 ]; then
+    modified=""
+  fi
+  return $ret
+}
+# }}} Functions
+
+# {{{ Main
+args=("$@")
+
+version_wrapper "$1"
+help_wapper "$1"
+check_git
+git_add_wrapper
+check_status
+pre_commit
+parse_change
+set_variables
+make_content
+make_message
+commit
+# }}} Main
