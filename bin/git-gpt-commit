@@ -5,7 +5,8 @@
 _VERSION="0.0.18"
 
 _METHOD="api"
-_MODEL="gemini-2.5-flash-lite"
+_MIODEL=""
+_API_MODEL="gemini-2.5-flash-lite"
 _ENDPOINT=""
 _ENDPOINT_OPENAI="https://api.openai.com/v1/chat/completions"
 _ENDPOINT_DEEPSEEK="https://api.deepseek.com/v1/chat/completions"
@@ -136,6 +137,7 @@ function set_variables {
   KEY_NAME="${KEY_NAME:-$_KEY_NAME}"
 
   if [ "$METHOD" == "api" ]; then
+    MODEL="${MODEL:-$_API_MODEL}"
     if [[ "$MODEL" =~ ^gpt* ]] || [[ "$MODEL" =~ ^chatgpt* ]] || [[ "$MODEL" =~ ^o1-* ]]; then
       ENDPOINT="${ENDPOINT:-$_ENDPOINT_OPENAI}"
       KEY_NAME="${KEY_NAME:-$_KEY_NAME_OPENAI}"
@@ -293,10 +295,33 @@ function make_message_with_api {
 }
 
 function make_message_with_agent {
-  commit_message="$("$METHOD" exec "$content" 2>/dev/null)"
+  error_file=$(mktemp)
+  model="${MODEL:+--model $MODEL}"
+  case "$METHOD" in
+    "claude"|"copilot")
+      # shellcheck disable=SC2086
+      commit_message="$($METHOD $model -p "$content" 2> "$error_file")"
+      ;;
+    "codex")
+      # shellcheck disable=SC2086
+      commit_message="$($METHOD $model exec "$content" 2> "$error_file")"
+      ;;
+    "gemini")
+      # shellcheck disable=SC2086
+      commit_message="$($METHOD $model "$content" 2> "$error_file")"
+      ;;
+    *)
+      echo "Unsupported METHOD: $METHOD"
+      exit 1
+      ;;
+  esac
   ret=$?
+  error="$(cat "$error_file")"
+  rm -f "$error_file"
   if [ $ret -ne 0 ]; then
     echo "Failed to get a response from the agent ($METHOD)."
+    echo ""
+    echo "$error"
     echo ""
     echo "$commit_message"
     exit $ret
