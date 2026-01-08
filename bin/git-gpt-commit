@@ -2,7 +2,7 @@
 # shellcheck disable=SC2001,2155
 
 # Default values {{{
-_VERSION="0.0.18"
+_VERSION="0.1.0"
 
 _METHOD="api"
 _MODEL=""
